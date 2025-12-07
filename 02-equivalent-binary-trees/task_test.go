@@ -24,6 +24,11 @@ func TestWalk(t *testing.T) {
 			tree:     tree.New(2),
 			expected: []int{2, 4, 6, 8, 10, 12, 14, 16, 18, 20},
 		},
+		{
+			name:     "walk empty",
+			tree:     nil,
+			expected: []int{},
+		},
 	}
 
 	for _, tt := range tests {
@@ -31,12 +36,12 @@ func TestWalk(t *testing.T) {
 			ch := make(chan int)
 
 			var result []int
-			done := make(chan bool)
+			done := make(chan struct{})
 			go func() {
 				for v := range ch {
 					result = append(result, v)
 				}
-				done <- true
+				done <- struct{}{}
 			}()
 
 			Walk(tt.tree, ch)
@@ -46,31 +51,14 @@ func TestWalk(t *testing.T) {
 			sort.Ints(result)
 			sort.Ints(tt.expected)
 
+			if len(tt.expected) == 0 && len(result) == 0 {
+				return
+			}
+
 			if !reflect.DeepEqual(result, tt.expected) {
 				t.Errorf("Walk() got = %v, want %v", result, tt.expected)
 			}
 		})
-	}
-}
-
-func TestWalkEmpty(t *testing.T) {
-	ch := make(chan int)
-
-	var result []int
-	done := make(chan bool)
-	go func() {
-		for v := range ch {
-			result = append(result, v)
-		}
-		done <- true
-	}()
-
-	Walk(nil, ch)
-
-	<-done
-
-	if len(result) != 0 {
-		t.Errorf("Walk() with nil tree got %v values, want empty", len(result))
 	}
 }
 
@@ -82,7 +70,7 @@ func TestSame(t *testing.T) {
 		want bool
 	}{
 		{
-			name: "identical trees",
+			name: "same values different structure",
 			t1:   tree.New(1),
 			t2:   tree.New(1),
 			want: true,
@@ -109,13 +97,6 @@ func TestSame(t *testing.T) {
 			name: "both nil trees",
 			t1:   nil,
 			t2:   nil,
-			want: true,
-		},
-		{
-			name: "same values different structure",
-
-			t1:   tree.New(1),
-			t2:   tree.New(1),
 			want: true,
 		},
 	}
