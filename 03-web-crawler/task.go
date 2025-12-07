@@ -1,5 +1,9 @@
 package main
 
+import "sync"
+
+var viewedUrls sync.Map
+
 type Fetcher interface {
 	// Fetch returns the body of URL and
 	// a slice of URLs found on that page.
@@ -20,10 +24,26 @@ func Crawl(url string, depth int, fetcher Fetcher) ([]string, error) {
 		return nil, err
 	}
 	result := []string{body}
+	viewedUrls.Store(url, struct{}{})
+
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
 	for _, u := range urls {
-		if res, err := Crawl(u, depth-1, fetcher); err == nil {
-			result = append(result, res...)
+		if _, exist := viewedUrls.Load(u); exist {
+			continue
 		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if res, err := Crawl(u, depth-1, fetcher); err == nil {
+				mu.Lock()
+				result = append(result, res...)
+				mu.Unlock()
+			}
+		}()
+
 	}
+	wg.Wait()
+
 	return result, nil
 }
